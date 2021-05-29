@@ -162,44 +162,23 @@ module.exports = function() {
     delete options.maxInstances;
   }
 
-  var intervalId = setInterval(function(){
-    if (runningInstances >= maxInstances) return;
-    runningInstances += 1;
-    clearInterval(intervalId);
+  if (alreadyCompiledFiles.indexOf(resourcePath) > -1){
+    console.log('Started compiling Elm..');
+  }
 
-    // If we are running in watch mode, and we have previously compiled
-    // the current file, then let the user know that `elm make` is running
-    // and can be slow
-    if (alreadyCompiledFiles.indexOf(resourcePath) > -1){
-      console.log('Started compiling Elm..');
-    }
+  var output;
+  var error;
+  try{
+    output = elmCompiler.compileToStringSync(files, options)
+  }catch(e){
+    error = e;
+  }
 
-    var compilation = elmCompiler.compileToString(files, options)
-      .then(function(v) { runningInstances -= 1; return { kind: 'success', result: v }; })
-      .catch(function(v) { runningInstances -= 1; return { kind: 'error', error: v }; });
-
-    promises.push(compilation);
-
-    Promise.all(promises)
-      .then(function(results) {
-        var output = results[results.length - 1]; // compilation output is always last
-
-        if (output.kind === 'success') {
-          alreadyCompiledFiles.push(resourcePath);
-          callback(null, output.result);
-        } else {
-          if (typeof output.error === 'string') {
-            output.error = new Error(output.error);
-          }
-
-          output.error.message = 'Compiler process exited with error ' + output.error.message;
-          callback(output.error);
-        }
-      }).catch(function(err){
-        callback(err);
-      });
-
-  }, 200);
+  if(output == '' || error){
+    callback( new Error(error ? error: "no content"));
+  }else{
+    callback(null, output);
+  }
 }
 
 
